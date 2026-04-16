@@ -53,9 +53,9 @@
             text-decoration: none;
         }
         .start-btn { background-color: #4ecca3; color: #1a1a2e; }
+        .start-btn:hover { transform: scale(1.05); }
         .home-link { background-color: #e94560; color: white; }
         
-        /* Game Over Overlay Styles */
         #game-over-overlay {
             position: absolute;
             top: 50%;
@@ -64,10 +64,11 @@
             display: none;
             flex-direction: column;
             align-items: center;
-            background: rgba(22, 33, 62, 0.9);
-            padding: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 30px;
             border-radius: 15px;
             border: 2px solid #e94560;
+            z-index: 10;
         }
     </style>
 </head>
@@ -86,12 +87,12 @@
             <div id="game-over-overlay">
                 <h1 style="color: #e94560; margin: 0 0 10px 0;">GAME OVER</h1>
                 <p id="final-score-text" style="font-size: 1.2rem; margin-bottom: 20px;"></p>
-                <button class="start-btn" onclick="startGame()">Try Again</button>
+                <button class="start-btn" id="retry-btn">Try Again</button>
             </div>
         </div>
 
         <div class="btn-container">
-            <button id="main-start-btn" class="start-btn" onclick="startGame()">Start Game</button>
+            <button id="main-start-btn" class="start-btn">Start Game</button>
             <a href="index.html" class="home-link">Return to Home</a>
         </div>
     </div>
@@ -104,9 +105,10 @@
         const overlay = document.getElementById("game-over-overlay");
         const finalScoreText = document.getElementById("final-score-text");
         const mainStartBtn = document.getElementById("main-start-btn");
+        const retryBtn = document.getElementById("retry-btn");
 
         const box = 20;
-        let snake, food, d, nextD, score, game, currentSpeed, isPlaying;
+        let snake, food, d, nextD, score, game, currentSpeed, isPlaying = false;
         
         let highScore = localStorage.getItem("snakeHighScore") || 0;
         highElement.innerHTML = "High Score: " + highScore;
@@ -114,16 +116,17 @@
         const neonColors = ["#FF00FF", "#00FFFF", "#00FF00", "#FFFF00", "#FF0000", "#FF8C00", "#7FFF00"];
 
         function init() {
+            // Initial snake: Head is first color, following segments take other colors
             snake = [{ x: 10 * box, y: 10 * box, color: "#4ecca3" }];
             generateFood();
             score = 0;
             d = "RIGHT";
             nextD = "RIGHT";
-            currentSpeed = 180; // Slightly slower starting speed (180ms)
+            currentSpeed =180; 
             isPlaying = true;
             scoreElement.innerHTML = "Score: " + score;
             overlay.style.display = "none";
-            mainStartBtn.style.visibility = "hidden"; // Hide main button while playing
+            mainStartBtn.style.visibility = "hidden";
         }
 
         function generateFood() {
@@ -132,12 +135,11 @@
                 let newX = Math.floor(Math.random() * (canvas.width / box)) * box;
                 let newY = Math.floor(Math.random() * (canvas.height / box)) * box;
 
-                const isTopLeft = (newX === 0 && newY === 0);
-                const isTopRight = (newX === canvas.width - box && newY === 0);
-                const isBottomLeft = (newX === 0 && newY === canvas.height - box);
-                const isBottomRight = (newX === canvas.width - box && newY === canvas.height - box);
+                // Corner protection logic
+                const isCorner = (newX === 0 || newX === canvas.width - box) && 
+                                 (newY === 0 || newY === canvas.height - box);
 
-                if (!isTopLeft && !isTopRight && !isBottomLeft && !isBottomRight) {
+                if (!isCorner) {
                     food = { x: newX, y: newY };
                     valid = true;
                 }
@@ -145,6 +147,7 @@
         }
 
         document.addEventListener("keydown", (e) => {
+            if(!isPlaying) return;
             const key = e.keyCode;
             if(key == 37 && d != "RIGHT") nextD = "LEFT";
             else if(key == 38 && d != "DOWN") nextD = "UP";
@@ -164,7 +167,7 @@
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // DRAW APPLE
+            // DRAW APPLE (With stem and leaf)
             const centerX = food.x + box / 2;
             const centerY = food.y + box / 2;
             const radius = box / 2 - 2;
@@ -183,6 +186,7 @@
             snake.forEach((segment, i) => {
                 ctx.fillStyle = segment.color;
                 if (i === 0) {
+                    // Diamond Head
                     ctx.beginPath();
                     ctx.moveTo(segment.x + box / 2, segment.y);
                     ctx.lineTo(segment.x + box, segment.y + box / 2);
@@ -190,13 +194,12 @@
                     ctx.lineTo(segment.x, segment.y + box / 2);
                     ctx.closePath();
                     ctx.fill();
+                    // Eyes
                     ctx.fillStyle = "white";
                     ctx.fillRect(segment.x + 4, segment.y + 6, 3, 3);
                     ctx.fillRect(segment.x + 13, segment.y + 6, 3, 3);
-                    ctx.fillStyle = "black";
-                    ctx.fillRect(segment.x + 5, segment.y + 7, 1, 1);
-                    ctx.fillRect(segment.x + 14, segment.y + 7, 1, 1);
                 } else {
+                    // Rounded body segments
                     ctx.fillRect(segment.x + 1, segment.y + 1, box - 2, box - 2);
                 }
             });
@@ -209,34 +212,23 @@
             if (d === "RIGHT") headX += box;
             if (d === "DOWN") headY += box;
 
-            // COLLISION
+            // COLLISION DETECTION
             if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height || 
-                snake.some(seg => seg.x === headX && seg.y === headY)) {
+                snake.some((seg, index) => index !== 0 && seg.x === headX && seg.y === headY)) {
                 
-                isPlaying = false;
-                clearTimeout(game);
-                
-                if (score > highScore) {
-                    highScore = score;
-                    localStorage.setItem("snakeHighScore", highScore);
-                    highElement.innerHTML = "High Score: " + highScore;
-                }
-                
-                // Clear board and show Game Over UI
-                ctx.fillStyle = "black";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                finalScoreText.innerText = "Final Score: " + score;
-                overlay.style.display = "flex";
+                gameOver();
                 return;
             }
 
+            // Create new head with the current head's color
             const newHead = { x: headX, y: headY, color: snake[0].color };
 
             if (headX === food.x && headY === food.y) {
                 score++;
                 scoreElement.innerHTML = "Score: " + score;
+                // The head gets a new rainbow color, old head becomes part of body
                 newHead.color = neonColors[Math.floor(Math.random() * neonColors.length)];
-                if (currentSpeed > 60) currentSpeed -= 4; // Progress speed
+                if (currentSpeed > 60) currentSpeed -= 4; 
                 generateFood();
             } else {
                 snake.pop();
@@ -245,13 +237,29 @@
             snake.unshift(newHead);
         }
 
+        function gameOver() {
+            isPlaying = false;
+            clearTimeout(game);
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("snakeHighScore", highScore);
+                highElement.innerHTML = "High Score: " + highScore;
+            }
+            finalScoreText.innerText = "Final Score: " + score;
+            overlay.style.display = "flex";
+        }
+
         function startGame() {
             clearTimeout(game);
             init();
             gameLoop();
         }
+
+        // Event Listeners (More reliable than inline onclick for GitHub Pages)
+        mainStartBtn.addEventListener("click", startGame);
+        retryBtn.addEventListener("click", startGame);
         
-        // Setup initial view
+        // Initial state
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     </script>
