@@ -170,4 +170,90 @@
             const radius = box / 2 - 2;
             ctx.fillStyle = "#e94560";
             ctx.beginPath();
-         
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = "#8b4513";
+            ctx.fillRect(centerX - 1, centerY - radius - 2, 2, 5);
+            ctx.fillStyle = "#2ecc71";
+            ctx.beginPath();
+            ctx.ellipse(centerX + 3, centerY - radius - 2, 2, 4, Math.PI / 4, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // DRAW SNAKE
+            snake.forEach((segment, i) => {
+                ctx.fillStyle = segment.color;
+                if (i === 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(segment.x + box / 2, segment.y);
+                    ctx.lineTo(segment.x + box, segment.y + box / 2);
+                    ctx.lineTo(segment.x + box / 2, segment.y + box);
+                    ctx.lineTo(segment.x, segment.y + box / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(segment.x + 4, segment.y + 6, 3, 3);
+                    ctx.fillRect(segment.x + 13, segment.y + 6, 3, 3);
+                    ctx.fillStyle = "black";
+                    ctx.fillRect(segment.x + 5, segment.y + 7, 1, 1);
+                    ctx.fillRect(segment.x + 14, segment.y + 7, 1, 1);
+                } else {
+                    ctx.fillRect(segment.x + 1, segment.y + 1, box - 2, box - 2);
+                }
+            });
+
+            let headX = snake[0].x;
+            let headY = snake[0].y;
+
+            if (d === "LEFT") headX -= box;
+            if (d === "UP") headY -= box;
+            if (d === "RIGHT") headX += box;
+            if (d === "DOWN") headY += box;
+
+            // COLLISION
+            if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height || 
+                snake.some(seg => seg.x === headX && seg.y === headY)) {
+                
+                isPlaying = false;
+                clearTimeout(game);
+                
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem("snakeHighScore", highScore);
+                    highElement.innerHTML = "High Score: " + highScore;
+                }
+                
+                // Clear board and show Game Over UI
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                finalScoreText.innerText = "Final Score: " + score;
+                overlay.style.display = "flex";
+                return;
+            }
+
+            const newHead = { x: headX, y: headY, color: snake[0].color };
+
+            if (headX === food.x && headY === food.y) {
+                score++;
+                scoreElement.innerHTML = "Score: " + score;
+                newHead.color = neonColors[Math.floor(Math.random() * neonColors.length)];
+                if (currentSpeed > 60) currentSpeed -= 4; // Progress speed
+                generateFood();
+            } else {
+                snake.pop();
+            }
+
+            snake.unshift(newHead);
+        }
+
+        function startGame() {
+            clearTimeout(game);
+            init();
+            gameLoop();
+        }
+        
+        // Setup initial view
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    </script>
+</body>
+</html>
